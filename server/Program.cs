@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Net;
-using WebTransportExample.Features.CertGenerator;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,12 +7,18 @@ builder.WebHost.ConfigureKestrel((context, options) =>
 {
     options.Listen(IPAddress.Any, 9000, listenOptions =>
     {
-        var cert = CertGenerator.GenerateCert();
-        listenOptions.UseHttps(cert);
+        listenOptions.UseHttps("../certificate.pfx", "localhost");
         listenOptions.UseConnectionLogging();
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
     });
 });
+
+builder.Services.AddCors(o => o.AddPolicy("AllowAll", builder =>
+{
+    builder.AllowAnyOrigin()
+           .AllowAnyMethod()
+           .AllowAnyHeader();
+}));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -26,10 +31,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHsts();
-app.UseForwardedHeaders();
-app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 app.UseAuthorization();
 app.UseAuthentication();
 app.MapControllers();

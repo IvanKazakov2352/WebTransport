@@ -7,7 +7,6 @@ using System.Net;
 namespace WebTransportExample.Controllers.Wt;
 
 [ApiController]
-[Route("api/v1")]
 public class WtController : ControllerBase
 {
     [HttpGet("wt")]
