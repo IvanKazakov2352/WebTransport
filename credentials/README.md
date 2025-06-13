@@ -1,3 +1,0 @@
-# WebTransport example
-
-Certificates
