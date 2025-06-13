@@ -1,0 +1,15 @@
+{
+	servers localhost:500 {
+		protocols h3
+	}
+	servers localhost:4200 {
+		protocols h1 h2
+	}
+}
+
+localhost:500 {
+	reverse_proxy https://0.0.0.0:9000
+}
+localhost:8080 {
+	reverse_proxy http://localhost:4200
+}

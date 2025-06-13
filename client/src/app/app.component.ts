@@ -6,7 +6,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
   styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit, OnDestroy {
-  public baseUrl: string = 'https://localhost:9000/';
+  public baseUrl: string = 'https://localhost:500/';
   public abortController: AbortController = new AbortController();
 
   public async initWebTransport(): Promise<void> {
@@ -14,6 +14,12 @@ export class AppComponent implements OnInit, OnDestroy {
       const wt = new WebTransport(this.baseUrl + "wt")
       await wt.ready
       console.log("WebTransport connection established")
+
+      const stream = await wt.createUnidirectionalStream()
+      
+      stream.abort()
+      stream.close()
+      wt.close()
     } catch (error) {
       const msg = `Transport initialization failed.
                 Reason: ${(error as any).message}.
