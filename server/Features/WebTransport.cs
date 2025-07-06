@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Http.Features;
-using System.Net;
+﻿using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Http.Features;
+using MessagePack;
 
 namespace WebTransportExample.Features.WebTransport;
 
@@ -24,24 +26,45 @@ public static class WebTransport
         if (!wt.IsWebTransportRequest)
         {
             logger.LogCritical("Request is not web transport type");
-            ctx.Response.StatusCode = (int)HttpStatusCode.UpgradeRequired;
             return;
         }
         var session = await wt.AcceptAsync(ctx.RequestAborted);
 
         logger.LogInformation("Web Transport session accepted");
-        var conn = await session.AcceptStreamAsync(ctx.RequestAborted);
 
-        if (conn is null)
+        ConnectionContext? stream = null;
+        IStreamDirectionFeature? direction = null;
+        while (true)
         {
-            ctx.Response.StatusCode = (int)HttpStatusCode.NoContent;
-            return;
+            stream = await session.AcceptStreamAsync(ctx.RequestAborted);
+            if (stream is null)
+                break;
+
+            direction = stream.Features.GetRequiredFeature<IStreamDirectionFeature>();
+            if (direction.CanRead && direction.CanWrite)
+                break;
+
+            else
+                await stream.DisposeAsync();
         }
 
-        logger.LogInformation("Web Transport stream created");
+        var inputPipe = stream!.Transport.Input;
+        var outputPipe = stream!.Transport.Output;
 
-        var outputPipe = conn.Transport.Output;
-        var inputPipe = conn.Transport.Input;
-        await outputPipe.WriteAsync(new Memory<byte>(new byte[] { 65, 66, 67, 68, 69 }), ctx.RequestAborted);
+        while (true)
+        {
+            var result = await inputPipe.ReadAsync(ctx.RequestAborted);
+            if (result.IsCompleted || result.Buffer.Length == 0)
+                break;
+            var message = MessagePackSerializer.Deserialize<string>(result.Buffer);
+            Console.WriteLine(message);
+            var newMessage = MessagePackSerializer.Serialize(message.GetType(), "PONG");
+            await outputPipe.WriteAsync(newMessage, ctx.RequestAborted);
+            await Task.Delay(300);
+        }
+
+        await inputPipe.CompleteAsync();
+
+        await outputPipe.FlushAsync(ctx.RequestAborted);
     }
 }

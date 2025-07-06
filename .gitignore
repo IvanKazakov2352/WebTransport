@@ -1,6 +1,4 @@
-cert.pem
-key.pem
+tls.csr
 certificate.pfx
 tls.crt
 tls.key
-localhost.pfx

@@ -11,13 +11,12 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    options.ListenAnyIP(4433, (listenOptions) =>
+    options.ListenAnyIP(5001, (listenOptions) =>
     {
         Action<HttpsConnectionAdapterOptions> httpsConfig = options =>
             options.SslProtocols = SslProtocols.Tls13;
 
-        listenOptions.UseHttps("../caddy/certificate.pfx", "localhost", httpsConfig);
-        listenOptions.DisableAltSvcHeader = false;
+        listenOptions.UseHttps("cert.pfx", "password", httpsConfig);
         listenOptions.Protocols = HttpProtocols.Http3;
 
         Console.WriteLine("HTTP/3 enabled");

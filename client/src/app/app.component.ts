@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { encode } from "@msgpack/msgpack"
+import { decode, encode } from "@msgpack/msgpack"
 
 @Component({
   selector: 'app-root',
@@ -7,20 +7,25 @@ import { encode } from "@msgpack/msgpack"
   styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit, OnDestroy {
-  public baseUrl: string = 'https://localhost:500/';
+  public wtUrl: string = 'https://localhost:5001/wt';
   public abortController: AbortController = new AbortController();
   
-
   public async initWebTransport(): Promise<void> {
     try {
-      const wt = new WebTransport(this.baseUrl + "wt")
+      const wt = new WebTransport(this.wtUrl)
       await wt.ready
       console.log("WebTransport connection established")
       const stream = await wt.createBidirectionalStream()
+      console.log("Created BidirectionalStream")
+      const reader = stream.readable.getReader()
       const writer = stream.writable.getWriter()
-      writer.write(encode("bla"))
-      writer.close()
-      wt.close()
+      writer.write(encode("PING"))
+
+      while(true) {
+        const { value, done } = await reader.read()
+        if(done) break
+        console.log(decode(value))
+      }
     } catch (error) {
       const msg = `Transport initialization failed.
                 Reason: ${(error as any).message}.
