@@ -1,23 +1,26 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using System.Net;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 using WebTransportExample.Features.WebTransport;
+using System.Security.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
+
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    options.Listen(IPAddress.Any, 9000, listenOptions =>
+    options.ListenAnyIP(4433, (listenOptions) =>
     {
-        if (File.Exists("../caddy/certificate.pfx"))
-        {
-            listenOptions.UseHttps("../caddy/certificate.pfx", "localhost");
-            listenOptions.DisableAltSvcHeader = false;
-            listenOptions.Protocols = HttpProtocols.Http3;
-        } 
-        else
-        {
-          listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-        }
+        Action<HttpsConnectionAdapterOptions> httpsConfig = options =>
+            options.SslProtocols = SslProtocols.Tls13;
+
+        listenOptions.UseHttps("../caddy/certificate.pfx", "localhost", httpsConfig);
+        listenOptions.DisableAltSvcHeader = false;
+        listenOptions.Protocols = HttpProtocols.Http3;
+
+        Console.WriteLine("HTTP/3 enabled");
         listenOptions.UseConnectionLogging();
     });
 });

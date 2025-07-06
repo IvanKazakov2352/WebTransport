@@ -41,8 +41,7 @@ public static class WebTransport
         logger.LogInformation("Web Transport stream created");
 
         var outputPipe = conn.Transport.Output;
-
-        await conn.DisposeAsync();
-        session.Abort(101);
+        var inputPipe = conn.Transport.Input;
+        await outputPipe.WriteAsync(new Memory<byte>(new byte[] { 65, 66, 67, 68, 69 }), ctx.RequestAborted);
     }
 }

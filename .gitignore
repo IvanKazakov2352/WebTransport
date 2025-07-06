@@ -3,3 +3,4 @@ key.pem
 certificate.pfx
 tls.crt
 tls.key
+localhost.pfx
