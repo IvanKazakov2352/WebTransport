@@ -31,7 +31,7 @@ public static class WebTransport
         var session = await wt.AcceptAsync(ctx.RequestAborted);
 
         logger.LogInformation("Web Transport session accepted");
-
+        // TODO: тут все переписать
         ConnectionContext? stream = null;
         IStreamDirectionFeature? direction = null;
         while (true)
@@ -50,6 +50,13 @@ public static class WebTransport
 
         var inputPipe = stream!.Transport.Input;
         var outputPipe = stream!.Transport.Output;
+        var connectionId = stream!.ConnectionId;
+
+        if (connectionId is not null)
+        {
+            var connectionIdMessage = MessagePackSerializer.Serialize(connectionId.GetType(), connectionId);
+            await outputPipe.WriteAsync(connectionIdMessage, ctx.RequestAborted);
+        }
 
         while (true)
         {
@@ -62,9 +69,5 @@ public static class WebTransport
             await outputPipe.WriteAsync(newMessage, ctx.RequestAborted);
             await Task.Delay(300);
         }
-
-        await inputPipe.CompleteAsync();
-
-        await outputPipe.FlushAsync(ctx.RequestAborted);
     }
 }

@@ -2,3 +2,4 @@ tls.csr
 certificate.pfx
 tls.crt
 tls.key
+cert.pfx
