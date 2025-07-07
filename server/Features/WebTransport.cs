@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using MessagePack;
+using System.IO.Pipelines;
 
 namespace WebTransportExample.Features.WebTransport;
 
@@ -14,60 +15,114 @@ public static class WebTransport
 
     private async static Task HandleWebTransport(HttpContext ctx)
     {
-        var logger = ctx.RequestServices.GetRequiredService<ILogger<IHttpWebTransportFeature>>();
         var wt = ctx.Features.GetRequiredFeature<IHttpWebTransportFeature>();
 
         if (wt is null)
         {
-            logger.LogCritical("Failed getting asp feature {featureName}", nameof(IHttpWebTransportFeature));
+            Console.WriteLine("Failed getting asp feature {featureName}", nameof(IHttpWebTransportFeature));
             throw new InvalidOperationException(nameof(IHttpWebTransportFeature));
         }
 
         if (!wt.IsWebTransportRequest)
         {
-            logger.LogCritical("Request is not web transport type");
+            Console.WriteLine("Request is not web transport type");
             return;
         }
         var session = await wt.AcceptAsync(ctx.RequestAborted);
 
-        logger.LogInformation("Web Transport session accepted");
-        // TODO: тут все переписать
-        ConnectionContext? stream = null;
-        IStreamDirectionFeature? direction = null;
-        while (true)
+        Console.WriteLine("Web Transport session accepted");
+
+        var stream = await session.AcceptStreamAsync(ctx.RequestAborted);
+        if (stream is null) 
         {
-            stream = await session.AcceptStreamAsync(ctx.RequestAborted);
-            if (stream is null)
-                break;
-
-            direction = stream.Features.GetRequiredFeature<IStreamDirectionFeature>();
-            if (direction.CanRead && direction.CanWrite)
-                break;
-
-            else
-                await stream.DisposeAsync();
+            Console.WriteLine("Unable to create a stream");
+            return;
         }
 
-        var inputPipe = stream!.Transport.Input;
-        var outputPipe = stream!.Transport.Output;
-        var connectionId = stream!.ConnectionId;
+        var output = stream.Transport.Output;
+        var input = stream.Transport.Input;
 
-        if (connectionId is not null)
+        await Task.WhenAll(
+            HandleReadingStream(ctx, input, stream),
+            HandleWritableStream(ctx, output, stream)
+        );
+        Console.WriteLine("WebTransport streaming started successful");
+        session.Abort(101);
+    }
+
+    private static async Task HandleWritableStream(HttpContext ctx, PipeWriter pipe, ConnectionContext stream)
+    {
+        var direction = stream.Features.GetRequiredFeature<IStreamDirectionFeature>();
+        Console.WriteLine("Writable stream started");
+
+        if (direction is null) 
         {
-            var connectionIdMessage = MessagePackSerializer.Serialize(connectionId.GetType(), connectionId);
-            await outputPipe.WriteAsync(connectionIdMessage, ctx.RequestAborted);
+            Console.WriteLine("Failed getting asp feature {featureName}", nameof(IStreamDirectionFeature));
+            return;
+        }
+        if(!direction.CanRead)
+        {
+            Console.WriteLine("Not writing option for this stream");
+            return;
+        }
+        var connectionId = stream.ConnectionId;
+        if(connectionId is not null)
+        {
+            var message = MessagePackSerializer.Serialize(connectionId.GetType(), connectionId);
+            await pipe.WriteAsync(message, ctx.RequestAborted);
+            await pipe.FlushAsync(ctx.RequestAborted);
+        }
+        await pipe.CompleteAsync();
+        Console.WriteLine("Writable stream completed");
+    }
+
+    private static async Task HandleReadingStream(HttpContext ctx, PipeReader pipe, ConnectionContext stream)
+    {
+        var direction = stream.Features.GetRequiredFeature<IStreamDirectionFeature>();
+        Console.WriteLine("Reading stream started");
+
+        if (direction is null)
+        {
+            Console.WriteLine("Failed getting asp feature {featureName}", nameof(IStreamDirectionFeature));
+            return;
+        }
+        if (!direction.CanWrite)
+        {
+            Console.WriteLine("Not reading option for this stream");
+            return;
         }
 
-        while (true)
+        while (!ctx.RequestAborted.IsCancellationRequested) 
         {
-            var result = await inputPipe.ReadAsync(ctx.RequestAborted);
-            if (result.IsCompleted || result.Buffer.Length == 0)
-                break;
-            var message = MessagePackSerializer.Deserialize<string>(result.Buffer);
-            Console.WriteLine(message);
-            var newMessage = MessagePackSerializer.Serialize(message.GetType(), "PONG");
-            await outputPipe.WriteAsync(newMessage, ctx.RequestAborted);
-            await Task.Delay(300);
+            try
+            {
+                var result = await pipe.ReadAsync(ctx.RequestAborted);
+                if (result.IsCompleted || result.Buffer.Length == 0)
+                {
+                    pipe.AdvanceTo(result.Buffer.End);
+                    ctx.Abort();
+                    break;
+                }
+                var message = MessagePackSerializer.Deserialize<string>(result.Buffer);
+                Console.WriteLine(message);
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Error reading message");
+                ctx.Abort();
+            }
+            catch (InvalidOperationException) 
+            {
+                Console.WriteLine("Invalid operation exception");
+                ctx.Abort();
+            }
+            catch(ConnectionResetException)
+            {
+                Console.WriteLine("Connection inactive exception");
+                ctx.Abort();
+            }
         }
+        await pipe.CompleteAsync();
+        Console.WriteLine("Reading stream completed");
     }
 }
