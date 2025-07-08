@@ -39,7 +39,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public pingPong(): void {
     interval(5000, asyncScheduler)
-      .pipe(takeUntil(this.destroySubject))
+      .pipe(
+        takeUntil(this.destroySubject)
+      )
       .subscribe(async () => {
         await this.writer.write(encode('PING'))
       })
@@ -64,7 +66,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.transport.close({
       closeCode: 101,
-      reason: "Ручное закрытие соединения"
+      reason: "Connection close"
     })
     const closed = await this.transport.closed
     
@@ -72,9 +74,7 @@ export class AppComponent implements OnInit, OnDestroy {
     console.log('closed reason', closed.reason)
   }
 
-  public ngOnDestroy(): void {
-    this.abortController.abort()
-    this.destroySubject.next()
-    this.destroySubject.complete()
+  public async ngOnDestroy(): Promise<void> {
+    await this.closeConnection()
   }
 }

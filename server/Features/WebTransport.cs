@@ -42,11 +42,22 @@ public static class WebTransport
         var output = stream.Transport.Output;
         var input = stream.Transport.Input;
 
+        Console.WriteLine("WebTransport streaming started");
+
         await Task.WhenAll(
-            HandleReadingStream(ctx, input, stream),
+            HandleReadableStream(ctx, input, stream),
             HandleWritableStream(ctx, output, stream)
         );
-        Console.WriteLine("WebTransport streaming started successful");
+
+        await output.CompleteAsync();
+        Console.WriteLine("Writable stream completed");
+
+        await input.CompleteAsync();
+        Console.WriteLine("Readable stream completed");
+
+        await stream.DisposeAsync();
+        Console.WriteLine("WebTransport streaming ended");
+
         session.Abort(101);
     }
 
@@ -60,33 +71,32 @@ public static class WebTransport
             Console.WriteLine("Failed getting asp feature {featureName}", nameof(IStreamDirectionFeature));
             return;
         }
-        if(!direction.CanRead)
+        if(!direction.CanWrite)
         {
             Console.WriteLine("Not writing option for this stream");
             return;
         }
+
         var connectionId = stream.ConnectionId;
         if(connectionId is not null)
         {
             var message = MessagePackSerializer.Serialize(connectionId.GetType(), connectionId);
             await pipe.WriteAsync(message, ctx.RequestAborted);
-            await pipe.FlushAsync(ctx.RequestAborted);
         }
-        await pipe.CompleteAsync();
-        Console.WriteLine("Writable stream completed");
+        await pipe.FlushAsync(ctx.RequestAborted);
     }
 
-    private static async Task HandleReadingStream(HttpContext ctx, PipeReader pipe, ConnectionContext stream)
+    private static async Task HandleReadableStream(HttpContext ctx, PipeReader pipe, ConnectionContext stream)
     {
         var direction = stream.Features.GetRequiredFeature<IStreamDirectionFeature>();
-        Console.WriteLine("Reading stream started");
+        Console.WriteLine("Readable stream started");
 
         if (direction is null)
         {
             Console.WriteLine("Failed getting asp feature {featureName}", nameof(IStreamDirectionFeature));
             return;
         }
-        if (!direction.CanWrite)
+        if (!direction.CanRead)
         {
             Console.WriteLine("Not reading option for this stream");
             return;
@@ -122,7 +132,5 @@ public static class WebTransport
                 ctx.Abort();
             }
         }
-        await pipe.CompleteAsync();
-        Console.WriteLine("Reading stream completed");
     }
 }

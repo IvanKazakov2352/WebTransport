@@ -17,7 +17,7 @@ builder.WebHost.ConfigureKestrel((context, options) =>
             options.SslProtocols = SslProtocols.Tls13;
 
         listenOptions.UseHttps("cert.pfx", "password", httpsConfig);
-        listenOptions.Protocols = HttpProtocols.Http3;
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
 
         Console.WriteLine("HTTP/3 enabled");
         listenOptions.UseConnectionLogging();
