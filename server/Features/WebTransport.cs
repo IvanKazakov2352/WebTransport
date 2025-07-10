@@ -80,7 +80,7 @@ public static class WebTransport
         var connectionId = stream.ConnectionId;
         if(connectionId is not null)
         {
-            var message = MessagePackSerializer.Serialize(connectionId.GetType(), connectionId);
+            var message = MessagePackSerializer.Serialize(connectionId, null, ctx.RequestAborted);
             await pipe.WriteAsync(message, ctx.RequestAborted);
         }
         await pipe.FlushAsync(ctx.RequestAborted);
@@ -113,7 +113,7 @@ public static class WebTransport
                     ctx.Abort();
                     break;
                 }
-                var message = MessagePackSerializer.Deserialize<string>(result.Buffer);
+                var message = MessagePackSerializer.Deserialize<string>(result.Buffer, null, ctx.RequestAborted);
                 Console.WriteLine(message);
             }
             catch (OperationCanceledException)

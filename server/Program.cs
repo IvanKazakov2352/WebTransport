@@ -2,12 +2,15 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using WebTransportExample.Features.WebTransport;
 using System.Security.Authentication;
+using WebTransportExample.Services.Cert;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
+
+builder.Services.AddScoped<ICertService, CertService>();
 
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
@@ -16,10 +19,8 @@ builder.WebHost.ConfigureKestrel((context, options) =>
         Action<HttpsConnectionAdapterOptions> httpsConfig = options =>
             options.SslProtocols = SslProtocols.Tls13;
 
-        listenOptions.UseHttps("cert.pfx", "password", httpsConfig);
+        listenOptions.UseHttps("../ssl/cert.pfx", "localhost", httpsConfig);
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
-
-        Console.WriteLine("HTTP/3 enabled");
         listenOptions.UseConnectionLogging();
     });
 });
