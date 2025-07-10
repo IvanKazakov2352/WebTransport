@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Https;
 using WebTransportExample.Features.WebTransport;
 using System.Security.Authentication;
 using WebTransportExample.Services.Cert;
+using WebTransportExample.Services.TransportSessions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
 builder.Services.AddScoped<ICertService, CertService>();
+builder.Services.AddScoped<ITransportSessions, TransportSessions>();
 
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
@@ -27,9 +29,7 @@ builder.WebHost.ConfigureKestrel((context, options) =>
 
 builder.Services.AddCors(o => o.AddPolicy("AllowAll", builder =>
 {
-    builder.AllowAnyOrigin()
-           .AllowAnyMethod()
-           .AllowAnyHeader();
+    builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
 }));
 
 builder.Services.AddControllers();
