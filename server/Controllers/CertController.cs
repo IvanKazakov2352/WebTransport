@@ -1,10 +1,9 @@
-﻿namespace WebTransportExample.Controllers;
-
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using WebTransportExample.Services.Cert;
 
-[ApiController]
-[Route("[controller]")]
+namespace WebTransportExample.Controllers;
+
+[Route("[controller]"), ApiController]
 public class CertController(ICertService certService) : ControllerBase
 {
     [HttpGet("/certHash")]

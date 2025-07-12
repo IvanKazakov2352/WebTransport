@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { decode, encode } from '@msgpack/msgpack';
 import { asyncScheduler, interval, Subject, takeUntil } from 'rxjs';
+import { ITransportEvent } from '../model';
 
 @Component({
   selector: 'app-root',
@@ -9,21 +10,23 @@ import { asyncScheduler, interval, Subject, takeUntil } from 'rxjs';
 })
 export class AppComponent implements OnInit, OnDestroy {
   public abortController: AbortController = new AbortController()
-  public transport: WebTransport = new WebTransport(new URL("https://localhost:5001/wt"));
-  public reader!: ReadableStreamDefaultReader<any>;
-  public writer!: WritableStreamDefaultWriter<any>;
+  public transport: WebTransport = new WebTransport(
+    new URL("https://localhost:5001/wt")
+  );
+  public reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  public writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   public destroySubject: Subject<void> = new Subject<void>()
 
   public async ngOnInit(): Promise<void> {
     try {
       console.log('WebTransport init connection');
       await this.transport.ready
-      this.pingPong()
       console.log('WebTransport connection established');
 
       const stream = await this.transport.createBidirectionalStream();
-      this.reader = stream.readable.getReader()
-      this.writer = stream.writable.getWriter()
+      this.reader = stream.readable.getReader() as ReadableStreamDefaultReader<Uint8Array>
+      this.writer = stream.writable.getWriter() as WritableStreamDefaultWriter<Uint8Array>
+      this.pingInterval()
 
       await this.readFunction()
     } catch (error) {
@@ -37,21 +40,26 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  public pingPong(): void {
+  public pingInterval(): void {
     interval(5000, asyncScheduler)
       .pipe(
         takeUntil(this.destroySubject)
       )
       .subscribe(async () => {
-        await this.writer.write(encode('PING'))
+        if(this.writer) {
+          await this.writer.write(encode('PING'))
+        }
       })
   }
 
   public async readFunction(): Promise<void> {
     while(!this.abortController.signal.aborted) {
-      const { value, done } = await this.reader.read()
+      const { value, done } = await this.reader!.read()
       if(done) break
-      console.log(decode(value))
+      if(value && value.length) {
+        const data = decode(value) as ITransportEvent<string>
+        console.log(data)
+      }
     }
   }
 
@@ -60,9 +68,14 @@ export class AppComponent implements OnInit, OnDestroy {
       this.abortController.abort()
     }
     this.destroySubject.next()
+    this.destroySubject.complete()
 
-    await this.reader.cancel()
-    await this.writer.close()
+    if(this.writer && this.reader) {
+      await this.reader.cancel()
+      await this.writer.close()
+      this.writer = null;
+      this.reader = null;
+    }
 
     this.transport.close({
       closeCode: 101,
