@@ -4,7 +4,6 @@ namespace WebTransportExample.Services.TransportSessions;
 
 public interface ITransportSessions
 {
-    void AddSession(Guid sessionId, ConnectionContext ctx);
+    ConnectionContext AddSession(Guid sessionId, ConnectionContext ctx);
     void RemoveSession(Guid sessionId);
-    ConnectionContext GetSession(Guid sessionId);
 };

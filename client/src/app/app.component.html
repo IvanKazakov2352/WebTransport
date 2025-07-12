@@ -1,2 +1,4 @@
-<button (click)="closeConnection()">Закрыть соединение</button>
-<button>Отправить сообщение по SessionId</button>
+<section class="container">
+  <button class="button" (click)="closeConnection()">Закрыть соединение</button>
+  <p class="text">SessionId: {{ sessionId() ?? "SessionId loading..." }}</p>
+</section>

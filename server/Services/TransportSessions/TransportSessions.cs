@@ -7,15 +7,22 @@ public class TransportSessions : ITransportSessions
 {
     private readonly ConcurrentDictionary<Guid, ConnectionContext> _connections = new();
 
-    public void AddSession(Guid sessionId, ConnectionContext ctx)
+    public ConnectionContext AddSession(Guid sessionId, ConnectionContext ctx)
     {
         ArgumentNullException.ThrowIfNull(ctx);
         if (_connections.TryGetValue(sessionId, out _))
         {
             throw new InvalidOperationException("This session already exists");
         }
-        _connections.TryAdd(sessionId, ctx);
-        Console.WriteLine($"Added WebTransport session by GUID: {sessionId}");
+        var isAddedSession = _connections.TryAdd(sessionId, ctx);
+        if (isAddedSession) 
+        {
+            Console.WriteLine($"Added WebTransport session by GUID: {sessionId}");
+        }
+        var session = _connections.GetValueOrDefault(sessionId)
+            ?? throw new InvalidOperationException("This session was not found.");
+
+        return session;
     }
 
     public void RemoveSession(Guid sessionId) 
@@ -24,20 +31,10 @@ public class TransportSessions : ITransportSessions
         {
             throw new InvalidOperationException("This session was not found.");
         }
-        _connections.Remove(sessionId, out _);
-        Console.WriteLine($"Removed WebTransport session by GUID: {sessionId}");
-    }
-
-    public ConnectionContext GetSession(Guid sessionId) 
-    {
-        if (!_connections.TryGetValue(sessionId, out _))
+        var isRemovedSession = _connections.Remove(sessionId, out _);
+        if (isRemovedSession) 
         {
-            throw new InvalidOperationException("This session was not found.");
+            Console.WriteLine($"Removed WebTransport session by GUID: {sessionId}");
         }
-        var ctx = _connections.GetValueOrDefault(sessionId) 
-            ?? throw new InvalidOperationException("This session was not found.");
-
-        Console.WriteLine($"Received WebTransport session by GUID: {sessionId}");
-        return ctx;
     }
 }
